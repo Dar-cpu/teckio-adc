@@ -1,0 +1,94 @@
+name: Build and validate ADC Lab
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  firmware:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Portable firmware protocol tests
+        run: |
+          gcc -std=c99 -Wall -Wextra -Werror tests/firmware_protocol_test.c ad7195/firmware/protocol.c -o /tmp/protocol-test
+          /tmp/protocol-test
+      - name: Fetch pinned Microchip toolchain
+        shell: bash
+        run: |
+          curl -fL --retry 3 https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc8-v4.00-full-install-linux-x64.tar.xz -o /tmp/xc8.tar.xz
+          echo "a24104a8f1fa3dcd2e18d8e42c08485a6c26d5789960ed8bcc7e6bdc2c6b46c6  /tmp/xc8.tar.xz" | sha256sum -c -
+          mkdir /tmp/xc8
+          tar -xJf /tmp/xc8.tar.xz -C /tmp/xc8
+          curl -fL --retry 3 https://packs.download.microchip.com/Microchip.PIC18F-K_DFP.1.17.312.atpack -o /tmp/dfp.atpack
+          echo "9d213d2dab355134670101250ed00772d87d2e5ab9a6cb6e6b9e8db317188105  /tmp/dfp.atpack" | sha256sum -c -
+          unzip -q /tmp/dfp.atpack -d /tmp/dfp
+      - name: Build PIC18F45K50 HEX
+        run: make -C ad7195/firmware XC8=/tmp/xc8/xc8-v4.00/bin/xc8-cc DFP=/tmp/dfp/xc8
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TECKIO-AD7195-firmware
+          path: |
+            ad7195/firmware/build/*.hex
+            ad7195/firmware/build/*.map
+            ad7195/firmware/build/*.elf
+          if-no-files-found: error
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Core tests
+        run: dotnet run --project tests/Teckio.Adc.Tests -c Release
+      - name: Build Windows application
+        run: dotnet build src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release
+      - name: WPF and PDF smoke test
+        shell: pwsh
+        run: |
+          $p = Start-Process src/Teckio.AdcLab/bin/Release/net10.0-windows/Teckio.AdcLab.exe -ArgumentList "--smoke-test", "$pwd/artifacts/qa" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content artifacts/qa/error.txt; throw "Smoke test failed" }
+      - name: Publish standalone Windows x64
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+          if ("$env:GITHUB_REF_TYPE" -eq "tag" -and "$env:GITHUB_REF_NAME" -ne "v$version") { throw "Tag must match Directory.Build.props Version" }
+          dotnet publish src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/windows
+          $hash = (Get-FileHash artifacts/windows/Teckio.AdcLab.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Teckio.AdcLab.exe" | Set-Content artifacts/windows/Teckio.AdcLab.exe.sha256 -Encoding ascii
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: TECKIO-ADC-Lab-visual-QA
+          path: artifacts/qa
+      - uses: actions/upload-artifact@v4
+        with:
+          name: TECKIO-ADC-Lab-Windows-x64
+          path: artifacts/windows
+          if-no-files-found: error
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [firmware, windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: TECKIO-ADC-Lab-Windows-x64
+          path: windows
+      - uses: actions/download-artifact@v4
+        with:
+          name: TECKIO-AD7195-firmware
+          path: firmware
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          gh release create "$RELEASE_TAG" windows/Teckio.AdcLab.exe windows/Teckio.AdcLab.exe.sha256 firmware/*.hex --title "TECKIO ADC Lab $RELEASE_TAG" --generate-notes

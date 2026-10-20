@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType><TargetFramework>net10.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF><EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AssemblyName>Teckio.AdcLab</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="../Teckio.Adc.Core/Teckio.Adc.Core.csproj" />
+    <PackageReference Include="System.IO.Ports" Version="10.0.0" />
+    <PackageReference Include="PDFsharp-WPF" Version="6.2.4" />
+    <Resource Include="../../img/*.png" Link="Assets/%(Filename)%(Extension)" />
+  </ItemGroup>
+</Project>

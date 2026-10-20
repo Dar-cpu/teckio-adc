@@ -1,0 +1,10 @@
+**/bin/
+**/obj/
+**/build/
+**/dist/
+.vs/
+*.user
+*.suo
+artifacts/
+*.log
+*_wpftmp.csproj

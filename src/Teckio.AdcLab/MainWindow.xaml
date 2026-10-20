@@ -1,0 +1,106 @@
+<Window x:Class="Teckio.AdcLab.MainWindow" xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:ui="clr-namespace:Teckio.AdcLab.Controls"
+ Title="TECKIO · ADC Lab" Width="1440" Height="920" MinWidth="1100" MinHeight="720" WindowStartupLocation="CenterScreen">
+ <Grid Margin="22">
+  <Grid.RowDefinitions><RowDefinition Height="72"/><RowDefinition Height="*"/><RowDefinition Height="30"/></Grid.RowDefinitions>
+  <Grid Grid.Row="0">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="225"/><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+   <StackPanel Orientation="Horizontal"><Image x:Name="Brand" Width="48" Height="48" Margin="0,0,12,0"/><StackPanel VerticalAlignment="Center"><TextBlock Text="TECKIO" FontWeight="Bold" FontSize="22"/><TextBlock Text="ADC LAB / 01" Foreground="{DynamicResource Muted}" FontSize="11"/></StackPanel></StackPanel>
+   <StackPanel Grid.Column="1" VerticalAlignment="Center"><TextBlock Text="Laboratorio de adquisición" FontSize="22" FontWeight="SemiBold"/><TextBlock x:Name="DeviceLabel" Text="Conecta una TECKIO PIC18K o explora el modo demo" Foreground="{DynamicResource Muted}"/></StackPanel>
+   <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock x:Name="RunBadge" Text="●  DESCONECTADO" Margin="0,0,20,0" Foreground="{DynamicResource Accent}"/><Button Content="Actualizar aplicación" Click="UpdateClick"/></StackPanel>
+  </Grid>
+  <Grid Grid.Row="1">
+   <Grid.ColumnDefinitions><ColumnDefinition Width="218"/><ColumnDefinition Width="*"/></Grid.ColumnDefinitions>
+   <Border Style="{StaticResource Card}" Padding="16">
+    <DockPanel>
+     <StackPanel DockPanel.Dock="Bottom"><TextBlock Text="TECKIO PIC18K → AD7195" FontSize="11"/><TextBlock Text="USB nativo · 24 bits&#xA;CRC16 · timestamps del dispositivo" Style="{StaticResource MutedText}" FontSize="11"/></StackPanel>
+     <StackPanel>
+      <TextBlock Text="CONEXIÓN" Foreground="{DynamicResource Muted}" FontSize="11" Margin="0,0,0,14"/>
+      <ComboBox x:Name="Ports"/><Button Content="Buscar puertos" Click="RefreshPortsClick"/>
+      <Button x:Name="ConnectButton" Content="Conectar" Click="ConnectClick"/>
+      <CheckBox x:Name="DemoCheck" Content="Modo demostración" Margin="0,14,0,14"/>
+      <Separator Background="{DynamicResource Line}" Margin="0,8,0,16"/>
+      <TextBlock Text="DISPOSITIVO" Foreground="{DynamicResource Muted}" FontSize="11"/>
+      <TextBlock Text="AD7195" FontSize="24" FontWeight="SemiBold" Margin="0,6"/>
+      <TextBlock Text="Analog Devices&#xA;Σ-Δ · PGA · excitación AC" Style="{StaticResource MutedText}"/>
+      <Separator Background="{DynamicResource Line}" Margin="0,16"/>
+      <TextBlock Text="ADQUISICIÓN" Foreground="{DynamicResource Muted}" FontSize="11"/>
+      <Button x:Name="StartButton" Content="▶  Iniciar captura" Click="StartClick" Background="#166858" Margin="0,12,0,4"/>
+      <Button x:Name="StopButton" Content="■  Detener" Click="StopClick"/>
+      <Button Content="Una conversión" Click="SingleClick"/>
+      <CheckBox x:Name="RecordCheck" Content="Grabar CSV al iniciar"/>
+      <Button Content="Exportar CSV" Click="ExportCsvClick"/>
+      <Button Content="Generar reporte PDF" Click="ReportClick"/>
+      <TextBlock x:Name="RecordLabel" Style="{StaticResource MutedText}" FontSize="11"/>
+     </StackPanel>
+    </DockPanel>
+   </Border>
+   <TabControl Grid.Column="1" x:Name="Tabs">
+    <TabItem Header="Adquisición">
+     <Grid>
+      <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="108"/><RowDefinition Height="*"/><RowDefinition Height="220"/></Grid.RowDefinitions>
+      <WrapPanel><TextBlock Text="Canal" Margin="0,0,10,0"/><ComboBox x:Name="ViewChannel" Width="210" SelectionChanged="PlotOptionChanged"/><TextBlock Text="Ventana" Margin="6,0,10,0"/><ComboBox x:Name="WindowSize" Width="120" SelectionChanged="PlotOptionChanged"><ComboBoxItem Content="1 024"/><ComboBoxItem Content="4 096" IsSelected="True"/><ComboBoxItem Content="16 384"/><ComboBoxItem Content="65 536"/></ComboBox><CheckBox x:Name="RawPlot" Content="Códigos crudos" Click="PlotOptionChanged"/><CheckBox x:Name="FreezePlot" Content="Pausar vista"/><Button Content="Autoescala" Click="AutoScaleClick"/></WrapPanel>
+      <UniformGrid Grid.Row="1" Columns="4">
+       <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="LECTURA" Foreground="{DynamicResource Muted}"/><TextBlock x:Name="ValueLabel" Text="—" FontSize="26" Margin="0,6,0,0"/><TextBlock x:Name="RawLabel" Text="0x------" Foreground="{DynamicResource Accent}"/></StackPanel></Border>
+       <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="RUIDO RMS / σ" Foreground="{DynamicResource Muted}"/><TextBlock x:Name="NoiseLabel" Text="—" FontSize="25" Margin="0,6,0,0"/><TextBlock x:Name="PpLabel" Text="Pico a pico —" FontSize="11" Foreground="{DynamicResource Muted}"/></StackPanel></Border>
+       <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="TASA MEDIDA / CANAL" Foreground="{DynamicResource Muted}"/><TextBlock x:Name="RateLabel" Text="— S/s" FontSize="25" Margin="0,6,0,0"/><TextBlock x:Name="CountLabel" Text="0 muestras" FontSize="11" Foreground="{DynamicResource Muted}"/></StackPanel></Border>
+       <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="INTEGRIDAD" Foreground="{DynamicResource Muted}"/><TextBlock x:Name="IntegrityLabel" Text="—" FontSize="25" Margin="0,6,0,0"/><TextBlock x:Name="LossLabel" Text="CRC · pérdidas · flags" FontSize="11" Foreground="{DynamicResource Muted}"/></StackPanel></Border>
+      </UniformGrid>
+      <Border Grid.Row="2" Style="{StaticResource Card}" Padding="12"><DockPanel><TextBlock DockPanel.Dock="Top" Text="FORMA DE ONDA  /  rueda: zoom · doble clic: restablecer · cursor: X / Y" FontSize="11" Foreground="{DynamicResource Muted}" Margin="8,0,0,8"/><ui:PlotView x:Name="WavePlot"/></DockPanel></Border>
+      <Grid Grid.Row="3"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+       <Border Style="{StaticResource Card}" Padding="10"><DockPanel><TextBlock DockPanel.Dock="Top" Text="DISTRIBUCIÓN / HISTOGRAMA" FontSize="11" Margin="8,0,0,3" Foreground="{DynamicResource Muted}"/><ui:PlotView x:Name="HistogramPlot" Bars="True"/></DockPanel></Border>
+       <Border Grid.Column="1" Style="{StaticResource Card}" Padding="10"><DockPanel><TextBlock DockPanel.Dock="Top" x:Name="FftLabel" Text="ESPECTRO / HANN" FontSize="11" Margin="8,0,0,3" Foreground="{DynamicResource Muted}"/><ui:PlotView x:Name="FftPlot"/></DockPanel></Border>
+      </Grid>
+     </Grid>
+    </TabItem>
+    <TabItem Header="Configuración">
+     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel x:Name="ConfigPanel" Margin="2,6">
+      <TextBlock Text="Configuración del AD7195" Style="{StaticResource Title}"/>
+      <TextBlock Text="Los cambios se aplican al dispositivo con lectura de verificación. VREF es un valor introducido por el usuario, no una medición de la referencia." Style="{StaticResource MutedText}"/>
+      <WrapPanel><Button Content="Aplicar configuración" Click="ApplyClick"/><Button Content="Leer del dispositivo" Click="ReadConfigClick"/><Button Content="Guardar perfil JSON" Click="SaveProfileClick"/><Button Content="Cargar perfil JSON" Click="LoadProfileClick"/></WrapPanel>
+      <Grid Margin="0,15"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition/></Grid.ColumnDefinitions>
+       <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="ENTRADAS Y GANANCIA" FontWeight="SemiBold" Margin="0,0,0,12"/><UniformGrid x:Name="ChannelChecks" Columns="1"/><TextBlock Text="Ganancia PGA"/><ComboBox x:Name="GainBox"/><WrapPanel><CheckBox x:Name="UnipolarCheck" Content="Unipolar"/><CheckBox x:Name="BufferCheck" Content="Buffer de entrada"/><CheckBox x:Name="RefDetectCheck" Content="Detectar referencia" IsChecked="True"/><CheckBox x:Name="BurnoutCheck" Content="Burnout 500 nA"/></WrapPanel><TextBlock Text="VREF aplicada (V)"/><TextBox x:Name="ReferenceBox" Text="5"/></StackPanel></Border>
+       <Border Grid.Column="1" Style="{StaticResource Card}"><StackPanel><TextBlock Text="RELOJ Y FILTRO" FontWeight="SemiBold" Margin="0,0,0,12"/><TextBlock Text="Reloj del ADC"/><ComboBox x:Name="ClockBox"><ComboBoxItem Content="Cristal externo ADC"/><ComboBoxItem Content="Reloj externo en MCLK2"/><ComboBoxItem Content="Interno 4.92 MHz" IsSelected="True"/><ComboBoxItem Content="Interno + salida MCLK2"/></ComboBox><TextBlock Text="Palabra FS (1…1023)"/><TextBox x:Name="FsBox" Text="96"/><WrapPanel><CheckBox x:Name="Sinc3Check" Content="Sinc³ (sin marcar: sinc⁴)"/><CheckBox x:Name="ChopCheck" Content="CHOP"/><CheckBox x:Name="AcxCheck" Content="Excitación AC"/><CheckBox x:Name="SingleCycleCheck" Content="Ciclo único / latencia cero"/><CheckBox x:Name="Rej60Check" Content="Rechazo adicional 60 Hz"/><CheckBox x:Name="ParityCheck" Content="Paridad de datos" IsChecked="True"/></WrapPanel><TextBlock x:Name="ConfigSummary" Style="{StaticResource MutedText}" Margin="0,20"/><TextBlock Text="Preset de adquisición"/><WrapPanel><Button Content="50 S/s" Tag="96" Click="PresetClick"/><Button Content="10 S/s" Tag="480" Click="PresetClick"/><Button Content="Máxima tasa" Tag="1" Click="PresetClick"/></WrapPanel><TextBlock Text="La tasa final depende del filtro y de los canales. La tasa USB real se comprueba con los timestamps, no con el baudrate COM." Style="{StaticResource MutedText}"/></StackPanel></Border>
+      </Grid>
+     </StackPanel></ScrollViewer>
+    </TabItem>
+    <TabItem Header="Registros">
+     <Grid Margin="2,6"><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="230"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+      <WrapPanel><Button Content="Leer todos" Click="ReadRegistersClick"/><ComboBox x:Name="RegisterSelect" Width="160"/><TextBox x:Name="RegisterValue" Text="000140" Width="125" FontFamily="Consolas"/><Button Content="Escribir HEX" Click="WriteRegisterClick"/></WrapPanel>
+      <DataGrid Grid.Row="1" x:Name="RegistersGrid"/>
+      <StackPanel Grid.Row="2" Margin="0,18,0,8"><TextBlock Text="Consola de comandos" Style="{StaticResource Title}"/><TextBlock Text="HELP · INFO · REGS · READ 1 · WRITE 2 000140 · SYNC · RESET · PINS · STATS · CAL 4 · GPIO 7F 20" Style="{StaticResource MutedText}"/><DockPanel><Button DockPanel.Dock="Right" Content="Enviar" Click="ConsoleClick"/><TextBox x:Name="ConsoleInput" FontFamily="Consolas" Text="INFO" KeyDown="ConsoleKeyDown"/></DockPanel></StackPanel>
+      <TextBox Grid.Row="3" x:Name="ConsoleLog" IsReadOnly="True" TextWrapping="Wrap" FontFamily="Consolas" FontSize="12" VerticalScrollBarVisibility="Auto"/>
+     </Grid>
+    </TabItem>
+    <TabItem Header="Diagnóstico">
+     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="2,6">
+      <TextBlock Text="Pruebas y calibración" Style="{StaticResource Title}"/>
+      <WrapPanel><Button Content="ID + registros + BPDSW" Click="DiagnosticClick"/><Button Content="Leer pines" Click="PinsClick"/><Button Content="Medir MCLK2" Click="ClockTestClick"/><Button Content="Pulso SYNC" Click="SyncClick"/><Button Content="Reset ADC" Click="ResetClick"/></WrapPanel>
+      <TextBlock x:Name="PinsLabel" Style="{StaticResource MutedText}"/>
+      <Border Style="{StaticResource Card}" Margin="0,14,12,12"><StackPanel><TextBlock Text="Calibración del canal seleccionado" FontSize="17"/><TextBlock Text="Selecciona un único canal en Configuración. La calibración de sistema necesita el nivel externo correspondiente. Los coeficientes se leen al finalizar." Style="{StaticResource MutedText}"/><WrapPanel><Button Content="Cero interno" Tag="4" Click="CalibrationClick"/><Button Content="Escala interna" Tag="5" Click="CalibrationClick"/><Button Content="Cero de sistema" Tag="6" Click="CalibrationClick"/><Button Content="Escala de sistema" Tag="7" Click="CalibrationClick"/></WrapPanel></StackPanel></Border>
+      <Border Style="{StaticResource Card}"><StackPanel><TextBlock Text="Estímulos digitales del probador" FontSize="17"/><TextBlock Text="Por defecto todos están en alta impedancia. Activa sólo las líneas que utilizas como estímulo. No son salidas DAC." Style="{StaticResource MutedText}"/><UniformGrid x:Name="StimulusControls" Columns="2"/><WrapPanel><Button Content="Aplicar estímulos" Click="StimulusClick"/><Button Content="Liberar todos (Hi-Z)" Click="ReleasePinsClick"/><Button Content="Fixture original: 0 V / REF 5 V" Click="FixtureClick"/></WrapPanel></StackPanel></Border>
+      <TextBox x:Name="DiagnosticLog" Height="220" IsReadOnly="True" TextWrapping="Wrap" FontFamily="Consolas" VerticalScrollBarVisibility="Auto"/>
+     </StackPanel></ScrollViewer>
+    </TabItem>
+    <TabItem Header="Datos">
+     <Grid><Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions><WrapPanel><TextBlock Text="Últimas 500 muestras. CSV exporta toda la ventana retenida; grabación conserva la sesión desde el inicio." Style="{StaticResource MutedText}"/><Button Content="Exportar CSV" Click="ExportCsvClick"/><Button Content="Exportar sesión JSON" Click="ExportSessionClick"/></WrapPanel><DataGrid Grid.Row="1" x:Name="SamplesGrid"/></Grid>
+    </TabItem>
+    <TabItem Header="Reporte">
+     <ScrollViewer VerticalScrollBarVisibility="Auto"><StackPanel Margin="2,6">
+      <TextBlock Text="Informe de caracterización" Style="{StaticResource Title}"/><TextBlock Text="Incluye condiciones, configuración, integridad, estadística por canal, formas de onda, histogramas, espectro y resultados de diagnóstico." Style="{StaticResource MutedText}"/>
+      <TextBlock Text="Operador"/><TextBox x:Name="OperatorBox"/>
+      <TextBlock Text="Placa / número de serie / montaje"/><TextBox x:Name="BoardBox"/>
+      <TextBlock Text="Valor esperado para error de media (V, sólo canales de tensión)"/><TextBox x:Name="TargetBox" Text="0"/>
+      <TextBlock Text="Condiciones del ensayo y observaciones"/><TextBox x:Name="NotesBox" AcceptsReturn="True" Height="140" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"/>
+      <CheckBox x:Name="AppendRawCheck" Content="Incluir anexo de datos crudos (máximo 200 filas)"/>
+      <Button Content="Generar PDF completo" Click="ReportClick" HorizontalAlignment="Left"/>
+      <TextBlock Text="La resolución efectiva DC usa log₂(rango/σ). No es ENOB dinámico. INL, DNL, exactitud absoluta y SINAD requieren estímulos y ensayos específicos; no se deducen de una captura cualquiera." Style="{StaticResource MutedText}" Margin="0,20"/>
+     </StackPanel></ScrollViewer>
+    </TabItem>
+    <TabItem Header="Ajustes">
+     <StackPanel Margin="2,6"><TextBlock Text="Preferencias del laboratorio" Style="{StaticResource Title}"/><TextBlock Text="Apariencia"/><ComboBox x:Name="ThemeBox" Width="220" HorizontalAlignment="Left" SelectionChanged="ThemeChanged"><ComboBoxItem Content="Oscuro"/><ComboBoxItem Content="Claro"/></ComboBox><TextBlock Text="Muestras retenidas en RAM (4096…2000000)"/><TextBox x:Name="CapacityBox" Text="262144" Width="220" HorizontalAlignment="Left"/><TextBlock Text="Intervalo de gráficos en ms (50…2000)"/><TextBox x:Name="RefreshBox" Text="100" Width="220" HorizontalAlignment="Left"/><Button Content="Guardar preferencias" Click="SaveSettingsClick" HorizontalAlignment="Left"/><TextBlock Text="Los perfiles son locales. No se transmite ninguna lectura a Internet. La consulta de actualizaciones sólo accede a GitHub Releases." Style="{StaticResource MutedText}" Margin="0,18"/><TextBlock Text="Firmware programado por ICSP / PICkit, sin bootloader. El botón Actualizar actualiza la aplicación Windows, no reprograma el PIC." Style="{StaticResource MutedText}"/><TextBlock x:Name="VersionLabel" Margin="0,20"/></StackPanel>
+    </TabItem>
+   </TabControl>
+  </Grid>
+  <TextBlock Grid.Row="2" x:Name="StatusLine" Text="Listo · Selecciona un puerto o habilita el modo demostración." Foreground="{DynamicResource Muted}" FontSize="12"/>
+ </Grid>
+</Window>
