@@ -1,4 +1,4 @@
-## TECKIO ADC Lab 1.0.3 / firmware fuente 1.0.1
+## TECKIO ADC Lab 1.0.4 / firmware fuente 1.0.1
 
 - Corrección de fuentes PIC18F45K50: cada respuesta CDC de 64 bytes termina con ZLP; el endpoint sólo queda libre al completar ambas transacciones. Estado reiniciado al reconfigurar USB.
 - Conexión Windows: HELLO con tres intentos limitados, recuperación STOP, contadores RX/CRC, primeros bytes recibidos en consola y liberación del puerto incluso si falla Open/HELLO. No se reintentan escrituras de registros.

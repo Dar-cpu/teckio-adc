@@ -112,6 +112,13 @@ jobs:
           GH_REPO: ${{ github.repository }}
           SOURCE_SHA: ${{ github.sha }}
         run: |
+          if [ "$GITHUB_REF" = "refs/heads/main" ]; then
+            current_head=$(gh api "repos/$GH_REPO/git/ref/heads/main" --jq '.object.sha')
+            if [ "$current_head" != "$SOURCE_SHA" ]; then
+              echo "A newer main commit is building; skip publication of this superseded build."
+              exit 0
+            fi
+          fi
           version=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props)
           release_tag="v$version"
           if gh release view "$release_tag" >/dev/null 2>&1; then
