@@ -390,10 +390,18 @@ public partial class MainWindow : Window
     });
     public async Task SmokeTest(string folder)
     {
-        Directory.CreateDirectory(folder);DemoCheck.IsChecked=true;await Start();
-        AddDemo(4096);running=false;UpdatePlots();UpdateLayout();await Task.Delay(300);
+        Directory.CreateDirectory(folder);ThemeBox.SelectedIndex=0;DemoCheck.IsChecked=true;await Start();
+        AddDemo(4096);running=false;UpdateState();UpdatePlots();UpdateLayout();await Task.Delay(300);
+        if (Background is not SolidColorBrush bg || bg.Color != ((SolidColorBrush)Application.Current.Resources["Bg"]).Color)
+            throw new InvalidOperationException("Window background does not follow the dark theme.");
         var bitmap=new RenderTargetBitmap((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);bitmap.Render(this);
         var encoder=new PngBitmapEncoder();encoder.Frames.Add(BitmapFrame.Create(bitmap));using(var f=File.Create(Path.Combine(folder,"dark.png")))encoder.Save(f);
+        foreach (int tab in new[] {1,2}) {
+            Tabs.SelectedIndex=tab;UpdateLayout();await Task.Delay(100);
+            bitmap=new((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);bitmap.Render(this);
+            encoder=new();encoder.Frames.Add(BitmapFrame.Create(bitmap));using(var f=File.Create(Path.Combine(folder,$"dark-tab-{tab}.png")))encoder.Save(f);
+        }
+        Tabs.SelectedIndex=0;
         ThemeBox.SelectedIndex=1;UpdateLayout();await Task.Delay(200);
         bitmap=new((int)ActualWidth,(int)ActualHeight,96,96,PixelFormats.Pbgra32);bitmap.Render(this);
         encoder=new();encoder.Frames.Add(BitmapFrame.Create(bitmap));using(var f=File.Create(Path.Combine(folder,"light.png")))encoder.Save(f);
