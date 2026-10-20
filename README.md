@@ -1,98 +1,85 @@
 # TECKIO ADC Lab
 
-Laboratorio nativo de Windows para adquisición y diagnóstico de ADC. Primer dispositivo: **AD7195 + TECKIO PIC18K (PIC18F45K50)**.
+Aplicación de escritorio para Windows que permite configurar, controlar y adquirir datos del ADC **AD7195** mediante la tarjeta de desarrollo **TECKIO PIC18K**, equipada con el microcontrolador **PIC18F45K50**.
 
-## Descargar y usar
+## Descargar e instalar la aplicación
 
-- [Descargar instalador Windows y fuentes del firmware](https://github.com/Dar-cpu/teckio-adc/releases/latest)
-- [Compilaciones de desarrollo y pruebas](https://github.com/Dar-cpu/teckio-adc/actions/workflows/build.yml)
-- Windows 10 (1809 o posterior)/11 **x64**. El instalador incluye .NET; no necesita instalar el SDK.
+**[Descargar TECKIO ADC Lab para Windows](https://github.com/Dar-cpu/teckio-adc/releases/latest/download/Teckio.AdcLab.Setup.exe)**
 
-1. Descarga `TECKIO-AD7195-firmware-sources.zip`, compila localmente los `.c`/`.h` en MPLAB X + XC8 y programa tu PIC mediante PICkit/ICSP. Es firmware independiente, **sin bootloader ni offset**. GitHub no compila firmware ni genera HEX.
-2. Ejecuta `Teckio.AdcLab.Setup.exe`. Instala la aplicación, el acceso del menú Inicio y el desinstalador; el acceso al escritorio es opcional. Abre **TECKIO ADC Lab**, selecciona el COM de la PIC18K y pulsa **Conectar**.
-3. Si conservas el montaje de prueba original con entradas y referencia alimentadas desde GPIO, entra en **Diagnóstico → Fixture original**. Al arrancar, esos GPIO están en alta impedancia.
-4. Configura VREF real, canal, ganancia y filtro. Pulsa **Aplicar configuración**, luego **Iniciar captura**.
-5. Para conservar más datos que la ventana RAM, marca **Grabar CSV al iniciar**. Exporta el reporte PDF desde la captura.
+1. Descarga `Teckio.AdcLab.Setup.exe` y ejecuta el instalador.
+2. Si Windows muestra **Editor desconocido** o el aviso de Microsoft Defender SmartScreen, es porque el instalador no tiene firma digital. Si lo descargaste desde este repositorio, selecciona **Más información → Ejecutar de todas formas** y continúa con la instalación.
+3. Abre **TECKIO ADC Lab** desde el menú Inicio.
+4. Conecta la TECKIO PIC18K al equipo mediante USB, selecciona su puerto **COM** en la aplicación y pulsa **Conectar**.
 
-**Modo demostración** permite explorar la app sin placa. La interfaz, sesiones y reportes identifican explícitamente los datos simulados.
+Compatible con **Windows 10 (versión 1809 o posterior) y Windows 11, x64**. El instalador incluye lo necesario para ejecutar la aplicación; no se requiere instalar .NET por separado.
 
-## Qué incluye
+También puedes consultar las [versiones publicadas](https://github.com/Dar-cpu/teckio-adc/releases).
 
-| Área | Funciones |
-|---|---|
-| Adquisición | USB CDC binario, paquetes CRC16, índices y timestamps del PIC, streaming y conversión única |
-| Visualización | Forma de onda, código crudo, autoescala, zoom, cursor, histograma, FFT Hann de hasta 8192 puntos |
-| Configuración | Los 8 canales internos/externos, PGA 1/8/16/32/64/128, bipolar/unipolar, sinc3/sinc4, FS, CHOP, ACX, burnout, buffer, paridad, referencia, reloj y latencia cero |
-| Registros | Lectura de los 8 registros, escritura validada, hexadecimal/binario/decimal, consola y lectura de verificación |
-| Diagnóstico | ID, BPDSW/GPOCON incluyendo bits inesperados como 0x46, pines, SYNC, MCLK2 por contador, estímulos digitales del fixture |
-| Calibración | Cero/escala interna y de sistema; lectura de coeficientes; selección de canal validada |
-| Datos | Ventana RAM configurable, CSV continuo, exportación CSV/JSON y metadatos de configuración |
-| Reportes | PDF paginado: condiciones, integridad, métricas por canal, onda, histograma, FFT, diagnóstico, registros, metodología y anexo crudo |
-| Preferencias | Temas oscuro/claro, perfiles JSON, frecuencia de refresco, memoria y metadatos de ensayo |
-| Actualizaciones | Consulta GitHub Releases, descarga y verifica SHA-256 del instalador, abre el asistente de actualización y conserva preferencias |
+## Descargar, compilar y cargar el firmware
 
-No hay telemetría de mediciones. Sólo la comprobación de actualizaciones consulta Internet.
+El firmware se proporciona como código fuente **C/H** para compilarlo localmente con **MPLAB X IDE** y el compilador **XC8**. No se distribuye un archivo HEX precompilado.
 
-## Organización extensible
+Puedes descargar únicamente las fuentes desde [la última versión publicada](https://github.com/Dar-cpu/teckio-adc/releases/latest/download/TECKIO-AD7195-firmware-sources.zip) o clonar todo el repositorio:
+
+```bash
+git clone https://github.com/Dar-cpu/teckio-adc.git
+```
+
+Para compilarlo en MPLAB X:
+
+1. Crea un proyecto **Standalone Project** y selecciona el microcontrolador **PIC18F45K50**.
+2. Selecciona el compilador **XC8**.
+3. Añade los siguientes archivos desde `ad7195/firmware/`:
+   - `main.c`, `board.c`, `ad7195.c` y `protocol.c`.
+   - `usb/usb.c`, `usb/usb_app.c`, `usb/usb_cdc_acm.c` y `usb/usb_descriptors.c`.
+4. Añade `ad7195/firmware/` y `ad7195/firmware/usb/` a las rutas de inclusión, con sus archivos de cabecera `.h`.
+5. Compila el proyecto y programa el **HEX generado** en la **TECKIO PIC18K** utilizando tu programador mediante **ICSP**.
+
+El firmware funciona como aplicación independiente, **sin bootloader ni desplazamiento de memoria**. Una vez programado, conecta el USB de la tarjeta y utiliza TECKIO ADC Lab para comunicarte con el AD7195.
+
+## Estructura del repositorio
 
 ```text
 ad7195/
-  firmware/        PIC18F45K50, controlador ADC y stack USB incluido
-  host/            Perfil AD7195: registros, validaciones y conversión
-  docs/            Conexiones, protocolo y procedimiento de validación
+  firmware/             Firmware PIC18F45K50 y comunicación USB
+  host/                 Perfil de registros y configuración del AD7195
+  docs/                 Documentación técnica del dispositivo y protocolo
 src/
-  Teckio.Adc.Core/  Protocolo, sesiones y análisis sin dependencia de WPF
-  Teckio.AdcLab/    Aplicación Windows, gráficas, PDF y actualización
-tests/             Pruebas C y .NET
-installer/         Instalador Windows Inno Setup, actualización y desinstalación
-img/               Logos originales de TECKIO
-.github/workflows/ Compilación y publicación
+  Teckio.Adc.Core/      Comunicación, adquisición y procesamiento de datos
+  Teckio.AdcLab/        Interfaz de escritorio para Windows
+installer/               Proyecto del instalador de Windows
+tests/                   Pruebas del software
+img/                     Recursos gráficos de TECKIO
+docs/                    Notas de versiones
+.github/workflows/       Automatización de compilación y publicación
 ```
 
-Para otro ADC: añade su carpeta de firmware/perfil e implementa `IAdcProfile`. El transporte, las sesiones y el análisis son reutilizables. La UI de configuración actual es específica del AD7195; no anuncia soporte de otros ADC todavía.
+## Conexiones TECKIO PIC18K ↔ AD7195
 
-## Compilar
+Correspondencia de señales utilizada por el firmware. La numeración del AD7195 corresponde al encapsulado **LFCSP de 32 pines**.
 
-### Windows
+| Pin TECKIO PIC18K (PIC18F45K50) | Pin AD7195 | Señal / función |
+|---|---:|---|
+| RD0 | 32 | CS (selección SPI) |
+| RD1 | 31 | SCLK |
+| RD2 | 28 | DIN |
+| RD3 | 27 | DOUT/RDY |
+| RD4 | 25 | SYNC |
+| RA4/T0CKI | 30 | MCLK2 (monitor de reloj opcional) |
+| RC7 | 20 | BPDSW (monitor de estado) |
+| RD6 | 3 | ACX1 |
+| RD7 | 4 | /ACX1 |
+| RE0 | 1 | ACX2 |
+| RE1 | 2 | /ACX2 |
+| RA0 | 9 | AIN1 |
+| RA1 | 10 | AIN2 |
+| RA2 | 15 | AIN3 |
+| RA3 | 16 | AIN4 |
+| RB1 | 8 | AINCOM |
+| RB2 | 17 | REFIN+ |
+| RB3 | 18 | REFIN− |
+| RB0 | — | Entrada auxiliar para botón del montaje |
 
-```powershell
-dotnet run --project tests/Teckio.Adc.Tests -c Release
-dotnet build src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release
-dotnet publish src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o artifacts/windows
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.4 installer/Teckio.AdcLab.iss
-```
+La comunicación con el PC utiliza el **USB nativo de la TECKIO PIC18K**. Los pines **RC4 y RC5** se reservan para USB y no forman parte de las conexiones GPIO con el AD7195.
 
-SDK **.NET 10**. PDFsharp-WPF 6.2.4 (MIT) y System.IO.Ports 10.0.0. Los logos se integran como recursos en el ejecutable.
-
-### Firmware
-
-Fuentes para XC8 y PIC18F45K50; la configuración anterior se desarrolló con XC8 **4.00** y Microchip **PIC18F-K_DFP 1.17.312**. A partir de 1.0.1 se entregan **sólo fuentes**, sin ejecutar compiladores de firmware ni en el agente ni en GitHub. El ZIP contiene únicamente `.c` y `.h`, conservando `usb/`.
-
-```bash
-make -C ad7195/firmware XC8=/ruta/xc8-cc DFP=/ruta/Microchip.PIC18F-K_DFP.1.17.312/xc8
-```
-
-En MPLAB X: crea un proyecto standalone PIC18F45K50 con XC8, añade `main.c`, `board.c`, `ad7195.c`, `protocol.c` y los cuatro `.c` dentro de `usb/`. Añade `firmware/` y `firmware/usb/` a los include paths. Programa la configuración incluida.
-
-**Reloj USB:** el cristal de 8 MHz de la tarjeta no genera 48 MHz mediante el PLL de este PIC. Este firmware usa HFINTOSC 16 MHz ×3 + ACT sincronizado por USB SOF. No requiere retirar el cristal. El reloj del AD7195 es independiente.
-
-## Publicar actualizaciones
-
-1. Cambia `Version` en `Directory.Build.props`, prueba y envía a `main`.
-2. GitHub Actions prueba y compila la app, crea su instalador, prueba instalación/actualización/desinstalación y genera capturas visuales y PDF demo. El firmware sólo se empaqueta.
-3. Si esa versión aún no existe, el flujo de `main` crea su tag y publica `Setup.exe`, su SHA-256 y el ZIP de fuentes C/H. Nunca reemplaza los assets de una versión ya publicada. También admite tags manuales coincidentes.
-4. **Actualizar aplicación** descubre esa versión y abre el instalador verificado. Éste mantiene la misma instalación y accesos directos. Preferencias/perfiles en `%LOCALAPPDATA%/TECKIO/ADC Lab`; la app se instala por usuario en `%LOCALAPPDATA%/Programs/TECKIO/ADC Lab`. No modifica firmware ni exige tokens de GitHub.
-
-El ejecutable no tiene firma Authenticode. SHA-256 verifica la descarga contra el asset del mismo Release; no es una firma de editor.
-
-## Límites y validación
-
-- El AD7195 permite aproximadamente 4.8 kS/s agregados en la configuración más rápida. Es un límite del ADC, **no una tasa medida/garantizada de esta placa**.
-- Firmware: ring de 64 muestras, lotes de hasta 4, lectura SPI por GPIO compatible con el montaje existente. CRC con tabla y servicio de adquisición intercalado.
-- Se cuentan pérdidas del buffer y huecos de índice. El ADC no tiene FIFO/contador: una conversión sobrescrita antes de leerla sólo puede sospecharse por tiempos/tasa, no contabilizarse exactamente.
-- Las gráficas muestran ventanas; el CSV continuo conserva todas las muestras recibidas desde su activación, limitado por disco.
-- σ y bits DC no equivalen a ENOB dinámico. INL/DNL/SINAD/exactitud absoluta requieren ensayos específicos.
-- La temperatura interna se convierte a °C sólo con ganancia 1 y bipolar.
-- La app se valida mediante compilación y pruebas automáticas. El firmware 1.0.1 se entrega sin compilar; la corrección USB debe confirmarse en tu placa después de tu compilación/programación local.
-
-Consulta [conexión USB y prueba COM](ad7195/docs/CONNECTION.md), [hardware](ad7195/docs/HARDWARE.md), [protocolo](ad7195/docs/PROTOCOL.md), [validación](ad7195/docs/VALIDATION.md) y [terceros](THIRD_PARTY_NOTICES.md).
+Las líneas AIN y REFIN conectadas a GPIO pueden configurarse desde la aplicación como estímulos de diagnóstico o mantenerse como entradas de alta impedancia para medición externa.
