@@ -9,7 +9,7 @@ permissions:
   contents: read
 concurrency:
   group: adc-lab-${{ github.ref }}
-  cancel-in-progress: false
+  cancel-in-progress: true
 jobs:
   firmware-sources:
     runs-on: ubuntu-latest
@@ -122,7 +122,13 @@ jobs:
           version=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props)
           release_tag="v$version"
           if gh release view "$release_tag" >/dev/null 2>&1; then
-            echo "Release $release_tag already exists. Increase Version for a new release."
-            exit 0
+            if [ "$(gh release view "$release_tag" --json isDraft --jq '.isDraft')" != "true" ]; then
+              echo "Release $release_tag already published. Increase Version for a new release."
+              exit 0
+            fi
+            gh release upload "$release_tag" installer-assets/Teckio.AdcLab.Setup.exe installer-assets/Teckio.AdcLab.Setup.exe.sha256 firmware-assets/TECKIO-AD7195-firmware-sources.zip --clobber
+          else
+            gh release create "$release_tag" installer-assets/Teckio.AdcLab.Setup.exe installer-assets/Teckio.AdcLab.Setup.exe.sha256 firmware-assets/TECKIO-AD7195-firmware-sources.zip --draft --target "$SOURCE_SHA" --title "TECKIO ADC Lab $release_tag" --notes-file docs/RELEASE_NOTES.md
           fi
-          gh release create "$release_tag" installer-assets/Teckio.AdcLab.Setup.exe installer-assets/Teckio.AdcLab.Setup.exe.sha256 firmware-assets/TECKIO-AD7195-firmware-sources.zip --target "$SOURCE_SHA" --title "TECKIO ADC Lab $release_tag" --notes-file docs/RELEASE_NOTES.md
+          # Publish only after all three assets have uploaded successfully.
+          gh release edit "$release_tag" --draft=false --latest
