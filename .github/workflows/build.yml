@@ -1,4 +1,4 @@
-name: Build and validate ADC Lab
+name: Build installer and package firmware sources
 on:
   push:
     branches: [main]
@@ -7,34 +7,32 @@ on:
   workflow_dispatch:
 permissions:
   contents: read
+concurrency:
+  group: adc-lab-${{ github.ref }}
+  cancel-in-progress: false
 jobs:
-  firmware:
+  firmware-sources:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Portable firmware protocol tests
+      - name: Package C and H files only (no firmware compilation)
         run: |
-          gcc -std=c99 -Wall -Wextra -Werror tests/firmware_protocol_test.c ad7195/firmware/protocol.c -o /tmp/protocol-test
-          /tmp/protocol-test
-      - name: Fetch pinned Microchip toolchain
-        shell: bash
-        run: |
-          curl -fL --retry 3 https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc8-v4.00-full-install-linux-x64.tar.xz -o /tmp/xc8.tar.xz
-          echo "a24104a8f1fa3dcd2e18d8e42c08485a6c26d5789960ed8bcc7e6bdc2c6b46c6  /tmp/xc8.tar.xz" | sha256sum -c -
-          mkdir /tmp/xc8
-          tar -xJf /tmp/xc8.tar.xz -C /tmp/xc8
-          curl -fL --retry 3 https://packs.download.microchip.com/Microchip.PIC18F-K_DFP.1.17.312.atpack -o /tmp/dfp.atpack
-          echo "9d213d2dab355134670101250ed00772d87d2e5ab9a6cb6e6b9e8db317188105  /tmp/dfp.atpack" | sha256sum -c -
-          unzip -q /tmp/dfp.atpack -d /tmp/dfp
-      - name: Build PIC18F45K50 HEX
-        run: make -C ad7195/firmware XC8=/tmp/xc8/xc8-v4.00/bin/xc8-cc DFP=/tmp/dfp/xc8
+          python3 - <<'PY'
+          from pathlib import Path
+          from zipfile import ZipFile, ZIP_DEFLATED
+          root = Path('ad7195/firmware')
+          Path('artifacts').mkdir(exist_ok=True)
+          files = sorted(p for p in root.rglob('*') if p.suffix in {'.c', '.h'})
+          assert files and (root / 'main.c') in files
+          with ZipFile('artifacts/TECKIO-AD7195-firmware-sources.zip', 'w', ZIP_DEFLATED) as z:
+              for p in files:
+                  z.write(p, p.relative_to(root))
+          print(f'Packaged {len(files)} source files; no compiler was invoked.')
+          PY
       - uses: actions/upload-artifact@v4
         with:
-          name: TECKIO-AD7195-firmware
-          path: |
-            ad7195/firmware/build/*.hex
-            ad7195/firmware/build/*.map
-            ad7195/firmware/build/*.elf
+          name: TECKIO-AD7195-sources
+          path: artifacts/TECKIO-AD7195-firmware-sources.zip
           if-no-files-found: error
   windows:
     runs-on: windows-latest
@@ -43,23 +41,45 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
-      - name: Core tests
+      - name: Core and connection regression tests
         run: dotnet run --project tests/Teckio.Adc.Tests -c Release
-      - name: Build Windows application
-        run: dotnet build src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release
-      - name: WPF and PDF smoke test
-        shell: pwsh
-        run: |
-          $p = Start-Process src/Teckio.AdcLab/bin/Release/net10.0-windows/Teckio.AdcLab.exe -ArgumentList "--smoke-test", "$pwd/artifacts/qa" -Wait -PassThru
-          if ($p.ExitCode -ne 0) { Get-Content artifacts/qa/error.txt; throw "Smoke test failed" }
-      - name: Publish standalone Windows x64
+      - name: Publish application files for installation
         shell: pwsh
         run: |
           $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
           if ("$env:GITHUB_REF_TYPE" -eq "tag" -and "$env:GITHUB_REF_NAME" -ne "v$version") { throw "Tag must match Directory.Build.props Version" }
-          dotnet publish src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/windows
-          $hash = (Get-FileHash artifacts/windows/Teckio.AdcLab.exe -Algorithm SHA256).Hash.ToLower()
-          "$hash  Teckio.AdcLab.exe" | Set-Content artifacts/windows/Teckio.AdcLab.exe.sha256 -Encoding ascii
+          dotnet publish src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o artifacts/windows
+          if ($LASTEXITCODE -ne 0) { throw "dotnet publish failed" }
+      - name: Build normal Windows installer
+        shell: pwsh
+        run: |
+          $version = ([xml](Get-Content Directory.Build.props)).Project.PropertyGroup.Version
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" "/DAppVersion=$version" installer/Teckio.AdcLab.iss
+          if ($LASTEXITCODE -ne 0) { throw "Inno Setup failed" }
+          $hash = (Get-FileHash artifacts/installer/Teckio.AdcLab.Setup.exe -Algorithm SHA256).Hash.ToLower()
+          "$hash  Teckio.AdcLab.Setup.exe" | Set-Content artifacts/installer/Teckio.AdcLab.Setup.exe.sha256 -Encoding ascii
+      - name: Install, update in place, run WPF/PDF smoke test, uninstall
+        shell: pwsh
+        run: |
+          $install = Join-Path $env:RUNNER_TEMP 'TECKIO ADC Lab'
+          $qa = Join-Path $pwd 'artifacts/qa'
+          New-Item -ItemType Directory -Force $qa | Out-Null
+          $setupArgs = "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /DIR=`"$install`" /LOG=`"$qa/install.log`""
+          $p = Start-Process artifacts/installer/Teckio.AdcLab.Setup.exe -ArgumentList $setupArgs -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Installation failed: $($p.ExitCode)" }
+          if (!(Test-Path "$install/unins000.exe")) { throw "Uninstaller missing" }
+          $prefs = Join-Path $env:LOCALAPPDATA 'TECKIO/ADC Lab'
+          New-Item -ItemType Directory -Force $prefs | Out-Null
+          Set-Content "$prefs/installer-test.txt" 'preserve-user-data'
+          $p = Start-Process artifacts/installer/Teckio.AdcLab.Setup.exe -ArgumentList ($setupArgs -replace 'install.log','update.log') -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "In-place update failed" }
+          if ((Get-Content "$prefs/installer-test.txt") -ne 'preserve-user-data') { throw "Update lost user data" }
+          $p = Start-Process "$install/Teckio.AdcLab.exe" -ArgumentList "--smoke-test `"$qa`"" -Wait -PassThru
+          if ($p.ExitCode -ne 0) { Get-Content "$qa/error.txt" -ErrorAction SilentlyContinue; throw "Installed application smoke test failed" }
+          $p = Start-Process "$install/unins000.exe" -ArgumentList '/VERYSILENT /SUPPRESSMSGBOXES /NORESTART' -Wait -PassThru
+          if ($p.ExitCode -ne 0) { throw "Uninstall failed" }
+          if (Test-Path "$install/Teckio.AdcLab.exe") { throw "Application was not uninstalled" }
+          if ((Get-Content "$prefs/installer-test.txt") -ne 'preserve-user-data') { throw "Uninstall lost user data" }
       - uses: actions/upload-artifact@v4
         if: always()
         with:
@@ -67,28 +87,35 @@ jobs:
           path: artifacts/qa
       - uses: actions/upload-artifact@v4
         with:
-          name: TECKIO-ADC-Lab-Windows-x64
-          path: artifacts/windows
+          name: TECKIO-ADC-Lab-Installer-x64
+          path: artifacts/installer
           if-no-files-found: error
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [firmware, windows]
+    if: github.event_name != 'pull_request' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
+    needs: [firmware-sources, windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
       - uses: actions/download-artifact@v4
         with:
-          name: TECKIO-ADC-Lab-Windows-x64
-          path: windows
+          name: TECKIO-ADC-Lab-Installer-x64
+          path: installer-assets
       - uses: actions/download-artifact@v4
         with:
-          name: TECKIO-AD7195-firmware
-          path: firmware
+          name: TECKIO-AD7195-sources
+          path: firmware-assets
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
-          RELEASE_TAG: ${{ github.ref_name }}
+          SOURCE_SHA: ${{ github.sha }}
         run: |
-          gh release create "$RELEASE_TAG" windows/Teckio.AdcLab.exe windows/Teckio.AdcLab.exe.sha256 firmware/*.hex --title "TECKIO ADC Lab $RELEASE_TAG" --generate-notes
+          version=$(sed -n 's/.*<Version>\([^<]*\)<\/Version>.*/\1/p' Directory.Build.props)
+          release_tag="v$version"
+          if gh release view "$release_tag" >/dev/null 2>&1; then
+            echo "Release $release_tag already exists. Increase Version for a new release."
+            exit 0
+          fi
+          gh release create "$release_tag" installer-assets/Teckio.AdcLab.Setup.exe installer-assets/Teckio.AdcLab.Setup.exe.sha256 firmware-assets/TECKIO-AD7195-firmware-sources.zip --target "$SOURCE_SHA" --title "TECKIO ADC Lab $release_tag" --notes-file docs/RELEASE_NOTES.md

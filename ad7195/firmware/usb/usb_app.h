@@ -64,6 +64,8 @@ bool usb_get_class_descriptor(const uint8_t** descriptor, uint16_t* size);
  * @brief Used to initialize class libraries.
  */
 void usb_app_init(void);
+/* TECKIO application hook: endpoints have been reset by cdc_init(). */
+void teckio_transport_reset(void);
 
 /**
  * @fn void usb_app_clear_halt(uint8_t bd_table_index, uint8_t ep, uint8_t dir)

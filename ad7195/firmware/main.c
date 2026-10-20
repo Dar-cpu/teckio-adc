@@ -4,11 +4,20 @@
 #include "protocol.h"
 #include "usb.h"
 #include "usb_cdc.h"
+#include "usb_app.h"
 #include <string.h>
 #define RING 64u
 static uint8_t samples[RING][12],head,tail,count;
 static uint8_t rx[64],rx_used,reply[64],tx[64];
-static bool rx_ready,tx_free=true,reply_ready,streaming,single,configured_before;
+/* EP2 IN remains owned until BOTH the 64-byte packet and its terminating
+ * zero-length packet have completed. usbser.sys may otherwise hold a full
+ * USB packet indefinitely while waiting for the end of the bulk transfer. */
+#define TX_IDLE 0u
+#define TX_DATA 1u
+#define TX_ZLP  2u
+static volatile bool rx_ready;
+static volatile uint8_t tx_state=TX_IDLE;
+static bool reply_ready,streaming,single,configured_before;
 static uint32_t index_next,dropped,crc_errors,last_flush,last_sample,single_start;
 static uint16_t stream_seq;
 static uint8_t stim_direction,stim_value;
@@ -26,7 +35,7 @@ static void command(void) {
     case 1:
         if(n) {error=2;break;}
         /* protocol, firmware semver, ADC ID, tick Hz, ring depth, max batch */
-        reply[9]=1;reply[10]=1;reply[11]=0;reply[12]=0;
+        reply[9]=1;reply[10]=1;reply[11]=0;reply[12]=1;
         reply[13]=(uint8_t)ad_read(4);tk_put32(reply+14,3000000UL);
         reply[18]=RING;reply[19]=4;len=11;break;
     case 2:
@@ -116,7 +125,13 @@ static void feed(uint8_t b) {
     }
 }
 static void send(const uint8_t *p) {
-    memcpy(g_cdc_dat_ep_in,p,64);tx_free=false;cdc_arm_data_ep_in(64);
+    memcpy(g_cdc_dat_ep_in,p,64);tx_state=TX_DATA;cdc_arm_data_ep_in(64);
+}
+/* Called after endpoint reinitialisation, including SET_CONFIGURATION while
+ * already configured. Never release a live endpoint merely on DTR changes. */
+void teckio_transport_reset(void) {
+    streaming=single=false;rx_ready=reply_ready=false;rx_used=count=0;
+    tx_state=TX_IDLE;stim_direction=stim_value=0;board_stimulus(0,0);
 }
 static void acquire(uint32_t now) {
     uint8_t data[4];
@@ -137,21 +152,21 @@ void main(void) {
         now=board_ticks();usb_tasks();
         if(usb_get_state()<STATE_CONFIGURED) {
             if(configured_before) {
-                streaming=single=false;rx_ready=reply_ready=false;rx_used=count=0;tx_free=true;
-                stim_direction=stim_value=0;board_stimulus(0,0);
+                teckio_transport_reset();
                 configured_before=false;
             }
             continue;
         }
         configured_before=true;
-        acquire(now);
+        acquire(board_ticks());
         if(single&&(uint32_t)(now-single_start)>15000000UL) single=false;
         if(rx_ready&&!reply_ready) {
             n=g_cdc_num_data_out;
+            rx_ready=false;
             for(i=0;i<n;i++)feed(g_cdc_dat_ep_out[i]);
-            rx_ready=false;cdc_arm_data_ep_out();
+            cdc_arm_data_ep_out();
         }
-        if(!tx_free)continue;
+        if(tx_state!=TX_IDLE)continue;
         if(reply_ready) {send(reply);reply_ready=false;continue;}
         if(count&&(count>=4||!streaming||(uint32_t)(now-last_flush)>6000UL)) {
             n=count>4?4:count;tk_put32(tx+8,dropped);
@@ -171,5 +186,12 @@ void cdc_set_control_line_state(void) {
 }
 void cdc_set_line_coding(void) {}
 void cdc_data_out(void) {rx_ready=true;}
-void cdc_data_in(void) {tx_free=true;}
+void cdc_data_in(void) {
+    if(tx_state==TX_DATA) {
+        /* cdc_tasks has already advanced DATA0/DATA1 for this completion. */
+        tx_state=TX_ZLP;cdc_arm_data_ep_in(0);
+    } else if(tx_state==TX_ZLP) {
+        tx_state=TX_IDLE;
+    }
+}
 void cdc_notification(void) {}

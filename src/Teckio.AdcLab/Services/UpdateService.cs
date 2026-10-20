@@ -20,7 +20,7 @@ public static class UpdateService
         var root = json.RootElement; string tag = root.GetProperty("tag_name").GetString()!;
         if (!Version.TryParse(tag.TrimStart('v'), out var v) || v <= new Version(Current.Major, Current.Minor, Current.Build)) return null;
         string Asset(string name) => root.GetProperty("assets").EnumerateArray().First(x => x.GetProperty("name").GetString() == name).GetProperty("browser_download_url").GetString()!;
-        return new(v, tag, root.GetProperty("body").GetString() ?? "", Asset("Teckio.AdcLab.exe"), Asset("Teckio.AdcLab.exe.sha256"));
+        return new(v, tag, root.GetProperty("body").GetString() ?? "", Asset("Teckio.AdcLab.Setup.exe"), Asset("Teckio.AdcLab.Setup.exe.sha256"));
     }
     static void ValidateUrl(string url)
     {
@@ -31,8 +31,8 @@ public static class UpdateService
     public static async Task<string> Download(ReleaseInfo release)
     {
         ValidateUrl(release.ExeUrl); ValidateUrl(release.ShaUrl);
-        string folder = Path.Combine(Settings.Folder, "Updates", release.Tag); Directory.CreateDirectory(folder);
-        string path = Path.Combine(folder, "Teckio.AdcLab.exe");
+        string folder = Path.Combine(Settings.Folder, "Updates", release.Version.ToString()); Directory.CreateDirectory(folder);
+        string path = Path.Combine(folder, "Teckio.AdcLab.Setup.exe");
         using var response = await Http.GetAsync(release.ExeUrl, HttpCompletionOption.ResponseHeadersRead);
         response.EnsureSuccessStatusCode();
         await using (var dest = File.Create(path)) await response.Content.CopyToAsync(dest);
@@ -42,24 +42,12 @@ public static class UpdateService
         if (!actual.Equals(expected, StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("SHA-256 no coincide. No se ejecutará la descarga.");
         return path;
     }
-    public static void InstallAndRestart(string path)
+    public static void OpenInstaller(string path)
     {
-        string current = Environment.ProcessPath ?? throw new IOException("No se encontró el ejecutable actual.");
-        if (!Path.GetFileName(current).Equals("Teckio.AdcLab.exe", StringComparison.OrdinalIgnoreCase))
-            throw new IOException("Las actualizaciones se instalan desde la versión portable publicada, no desde dotnet run.");
-        string directory = Path.GetDirectoryName(current)!;
-        string probe = Path.Combine(directory, ".teckio-update-" + Guid.NewGuid().ToString("N"));
-        using (new FileStream(probe, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) {}
-        static string Q(string s) => "'" + s.Replace("'", "''") + "'";
-        string script = "$ErrorActionPreference='Stop'; " +
-            $"Wait-Process -Id {Environment.ProcessId} -ErrorAction SilentlyContinue; " +
-            $"$src={Q(path)}; $dst={Q(current)}; $backup=$dst+'.previous'; " +
-            "try { Copy-Item -LiteralPath $dst -Destination $backup -Force; " +
-            "$done=$false; for($i=0;$i -lt 20;$i++){ try{Copy-Item -LiteralPath $src -Destination $dst -Force;$done=$true;break}catch{Start-Sleep -Milliseconds 500} }; " +
-            "if(!$done){throw 'No se pudo reemplazar la aplicación'}; Start-Process -FilePath $dst " +
-            "} catch { if(Test-Path -LiteralPath $backup){Copy-Item -LiteralPath $backup -Destination $dst -Force}; " +
-            "Add-Type -AssemblyName PresentationFramework;[System.Windows.MessageBox]::Show($_.Exception.Message,'TECKIO - actualización');Start-Process -FilePath $dst }";
-        string encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(script));
-        Process.Start(new ProcessStartInfo("powershell.exe", "-NoProfile -NonInteractive -EncodedCommand " + encoded) { UseShellExecute = false, CreateNoWindow = true });
+        if (!File.Exists(path)) throw new FileNotFoundException("No se encontró el instalador descargado.", path);
+        // Inno Setup owns replacement, shortcuts and uninstall registration.
+        // Existing settings/captures live outside the installation directory.
+        _ = Process.Start(new ProcessStartInfo(path) { UseShellExecute = true })
+            ?? throw new IOException("Windows no pudo abrir el instalador.");
     }
 }

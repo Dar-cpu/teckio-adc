@@ -385,8 +385,8 @@ public partial class MainWindow : Window
     async void UpdateClick(object sender,RoutedEventArgs e)=>await Guard(async()=>{
         RequireStopped();StatusLine.Text="Consultando GitHub Releases…";var release=await UpdateService.Check();
         if(release==null){StatusLine.Text="No hay una versión estable más reciente publicada.";return;}
-        if(MessageBox.Show(this,$"Versión {release.Tag} disponible.\n\n¿Descargar, verificar SHA-256 y reiniciar con la nueva versión?","Actualizar ADC Lab",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;
-        string path=await UpdateService.Download(release);UpdateService.InstallAndRestart(path);Application.Current.Shutdown();
+        if(MessageBox.Show(this,$"Versión {release.Tag} disponible.\n\n¿Descargar y verificar el instalador? La aplicación se cerrará y se abrirá el asistente de actualización. Tus preferencias se conservarán.","Actualizar ADC Lab",MessageBoxButton.YesNo)!=MessageBoxResult.Yes)return;
+        string path=await UpdateService.Download(release);UpdateService.OpenInstaller(path);Application.Current.Shutdown();
     });
     public async Task SmokeTest(string folder)
     {

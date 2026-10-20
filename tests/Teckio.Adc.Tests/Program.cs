@@ -40,4 +40,5 @@ using(var session=new Session(new(DateTimeOffset.UtcNow,false,"test",0x180060,0x
     Check(c.IndexGaps==1&&c.Invalid==1&&c.FirmwareDrops==1,"loss and invalid accounting");
     Near(c.Samples[0].Seconds,30/3000000.0,1e-12,"32-bit timestamp wrap");
 }
+await ConnectionTests.Run(Check);
 Console.WriteLine($"{count} tests passed");

@@ -46,6 +46,7 @@ bool usb_get_class_descriptor(const uint8_t** descriptor, uint16_t* size)
 void usb_app_init(void)
 {
     cdc_init();
+    teckio_transport_reset();
 }
 
 

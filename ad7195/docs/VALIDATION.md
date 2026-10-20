@@ -2,16 +2,16 @@
 
 ## Automática
 
-- Pruebas C del mismo CRC/empaquetador que usa el PIC.
+- El firmware se revisa como fuente y se empaqueta en C/H; **no se compila** en CI.
 - Pruebas .NET: fragmentación CDC aleatoria, re-sincronización después de CRC corrupto, conversión bipolar/unipolar, combinaciones inválidas, media/σ, FFT con seno conocido, histograma, pérdidas, ring y rollover.
-- Compilación real XC8 para PIC18F45K50 con DFP fijado.
+- Pruebas del cliente de conexión real con transporte simulado: HELLO de COM20, reintento, respuesta fragmentada, secuencia atrasada, STOP al conectar, timeout, liberación del COM y ausencia de reintentos de escritura.
 - Compilación real de WPF en Windows.
 - Smoke test Windows: abre ventana, adquiere datos demo, renderiza imágenes oscuro/claro y crea PDF.
-- Publicación standalone win-x64. Los artefactos QA son evidencia de software, no mediciones de hardware.
+- Instalador win-x64: instalación silenciosa, actualización en la misma carpeta, ejecución del programa instalado y desinstalación; conservación de datos de usuario. Los artefactos QA son evidencia de software, no mediciones de hardware.
 
 ## Primer ensayo físico
 
-1. Programar el HEX y confirmar enumeración COM. HELLO debe mostrar firmware e ID.
+1. Compilar localmente las fuentes 1.0.1, programar el resultado y confirmar enumeración COM. HELLO debe mostrar firmware e ID. Seguir [la prueba de conexión](CONNECTION.md).
 2. Leer registros y guardar captura del diagnóstico ID/BPDSW. Si aparece 0x46, conservar todas las lecturas, no sólo el bit6.
 3. Configurar fixture original si se conservan esas conexiones. VREF en UI debe coincidir con la referencia aplicada.
 4. Ganancia1, bipolar, buffer OFF, AIN1/AIN2, FS96. Con diferencia cero esperar código próximo a 0x800000.
@@ -34,4 +34,4 @@
 
 ## Recuperación de actualizaciones
 
-El actualizador conserva `Teckio.AdcLab.exe.previous` junto al ejecutable. Si la nueva versión no inicia, cierra la app y restaura esa copia. Configuración y perfiles permanecen en `%LOCALAPPDATA%/TECKIO/ADC Lab`.
+El actualizador abre el instalador publicado después de verificar SHA-256. Si el asistente se cancela antes de instalar, la versión existente permanece instalada. Para reinstalar, ejecuta de nuevo su `Setup.exe`. Configuración y perfiles permanecen en `%LOCALAPPDATA%/TECKIO/ADC Lab`, incluso al desinstalar. No se conserva una copia portable `.previous`.
