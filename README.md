@@ -25,14 +25,14 @@ Puedes descargar únicamente las fuentes desde [la última versión publicada](h
 git clone https://github.com/Dar-cpu/teckio-adc.git
 ```
 
-Para compilarlo en MPLAB X:
+Para compilarlo en MPLAB X, utiliza `ad7195/firmware/` si clonaste el repositorio o la carpeta descomprimida si descargaste el ZIP:
 
 1. Crea un proyecto **Standalone Project** y selecciona el microcontrolador **PIC18F45K50**.
 2. Selecciona el compilador **XC8**.
-3. Añade los siguientes archivos desde `ad7195/firmware/`:
+3. Añade los siguientes archivos desde la carpeta del firmware:
    - `main.c`, `board.c`, `ad7195.c` y `protocol.c`.
    - `usb/usb.c`, `usb/usb_app.c`, `usb/usb_cdc_acm.c` y `usb/usb_descriptors.c`.
-4. Añade `ad7195/firmware/` y `ad7195/firmware/usb/` a las rutas de inclusión, con sus archivos de cabecera `.h`.
+4. Añade la carpeta del firmware y su subcarpeta `usb/` a las rutas de inclusión, con sus archivos de cabecera `.h`.
 5. Compila el proyecto y programa el **HEX generado** en la **TECKIO PIC18K** utilizando tu programador mediante **ICSP**.
 
 El firmware funciona como aplicación independiente, **sin bootloader ni desplazamiento de memoria**. Una vez programado, conecta el USB de la tarjeta y utiliza TECKIO ADC Lab para comunicarte con el AD7195.
