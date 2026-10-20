@@ -59,7 +59,7 @@ Para otro ADC: añade su carpeta de firmware/perfil e implementa `IAdcProfile`. 
 dotnet run --project tests/Teckio.Adc.Tests -c Release
 dotnet build src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release
 dotnet publish src/Teckio.AdcLab/Teckio.AdcLab.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=false -o artifacts/windows
-& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.2 installer/Teckio.AdcLab.iss
+& "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.3 installer/Teckio.AdcLab.iss
 ```
 
 SDK **.NET 10**. PDFsharp-WPF 6.2.4 (MIT) y System.IO.Ports 10.0.0. Los logos se integran como recursos en el ejecutable.

@@ -8,7 +8,8 @@
     <SolidColorBrush x:Key="Muted" Color="#9BAABD"/>
     <SolidColorBrush x:Key="Accent" Color="#49D9C0"/>
     <Style TargetType="Window"><Setter Property="Background" Value="{DynamicResource Bg}"/><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="FontFamily" Value="Segoe UI"/><Setter Property="FontSize" Value="13"/></Style>
-    <Style TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource Text}"/><Setter Property="VerticalAlignment" Value="Center"/></Style>
+    <!-- Inherit foreground so button labels respect their control's contrast. -->
+    <Style TargetType="TextBlock"><Setter Property="VerticalAlignment" Value="Center"/></Style>
     <Style x:Key="MutedText" TargetType="TextBlock"><Setter Property="Foreground" Value="{DynamicResource Muted}"/><Setter Property="TextWrapping" Value="Wrap"/><Setter Property="Margin" Value="0,4"/></Style>
     <Style x:Key="Title" TargetType="TextBlock"><Setter Property="FontSize" Value="23"/><Setter Property="FontWeight" Value="SemiBold"/><Setter Property="Margin" Value="0,0,0,10"/></Style>
     <Style TargetType="Button">
